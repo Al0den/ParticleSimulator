@@ -16,8 +16,6 @@ profile:
 	rm -rf simulation.trace
 	xctrace record --output simulation.trace --template "Time Profiler" --launch -- ./simulation 
 	open simulation.trace
-	rm
-
 
 $(TARGET): $(OBJS)
 	$(CXX) -pg -o $@ $^ $(LDFLAGS)

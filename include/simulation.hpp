@@ -12,7 +12,7 @@
 
 class Simulation {
 public:
-    int mult = 8;
+    int mult = 10;
     int fps = 60;
     float dt = (float)fps / mult;
 
@@ -24,12 +24,13 @@ public:
     void drawFrame();
     
     void updateParticles();
-
+    
+    void boxConstraint();
     void circleConstraint();
-    void handleCollisionsGeneral();
-    void handleCollisions();
 
+    void handleCollisionsGeneral();
     void handleGridCollisions(int x, int y);
+    void handleCollisions();
 
     void init_grid();
     void update_grid();
@@ -37,12 +38,11 @@ public:
     std::vector<Particle> particles;
 
     ThreadPool threader{std::thread::hardware_concurrency() * 4};
-    //ThreadPool threader{1};
     
     std::vector<std::vector<int>> grid;
 
 private:
     Renderer& renderer;
 
-    int frameNum;
+    int frameNum = 0;
 };

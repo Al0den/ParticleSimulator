@@ -26,6 +26,11 @@ public:
         this->position_last = position;
         this->radius = radius;
     }
+    Particle(sf::Vector2f position, sf::Vector2f velocity, float radius) {
+        this->position = position;
+        this->position_last = position - velocity;
+        this->radius = radius;
+    }
 
     void update(float dt) {
         sf::Vector2f displacement = position - position_last;

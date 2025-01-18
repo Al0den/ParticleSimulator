@@ -1,17 +1,17 @@
 #include <time.h>
 #include <chrono>
 #include <thread>
-
+#include <cmath>
 #include <SFML/Graphics.hpp>
 
 #include "../include/simulation.hpp"
+#include "../include/utils.hpp"
+
+int radius = 2;
+int spawnDelay = 1;
 
 Simulation::Simulation(Renderer& renderer) : renderer(renderer) {
-    for(int i=0; i<60; i++) {
-        for(int j=0; j<80; j++) {
-            particles.push_back(Particle({(float)200 + i*7, (float)130 + j*7}, 3));
-        }
-    }
+    particles.push_back(Particle({400, 400}, radius));
     init_grid();
     return;
 }
@@ -46,6 +46,7 @@ void Simulation::run() {
 
     float liveFps;
 
+
     while (window.isOpen()) {
         while (const std::optional event = window.pollEvent()) {
             if(event->is<sf::Event::Closed>()) {
@@ -57,6 +58,8 @@ void Simulation::run() {
             }
         }
 
+
+
         window.clear(sf::Color::White);
 
         frameNum++;
@@ -64,16 +67,33 @@ void Simulation::run() {
         for (int i=0; i<mult; i++) {
             updateParticles();
             handleCollisions();
-            circleConstraint();
+            boxConstraint();
             update_grid();
         }
 
         drawFrame();
         fpsText.setString("FPS: " + std::to_string((int)liveFps));
+        numParticlesText.setString("Particles: " + std::to_string(particles.size()));
         window.draw(fpsText);
         window.draw(numParticlesText);
 
         window.display();
+
+        int spawnX = 300;
+        int spawnY = 100;
+
+        int num_spawners = fmin(50, frameNum / fps * 5 + 1);
+        //int num_spawners = 10;
+
+        if(frameNum % spawnDelay == 0) {
+            for (int i=0; i<num_spawners; i++) {
+                
+                float vx = sin(frameNum / 30.0) * 1.5;
+                float vy = abs(cos(frameNum / 30.0) * 1.5); 
+
+                particles.push_back(Particle({(float)spawnX, (float)spawnY + 2 * i * (radius+1)}, {vx, vy}, radius));
+            }
+        }
 
         int timeSpentMS = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - prevTime).count();
 
@@ -84,37 +104,61 @@ void Simulation::run() {
 }
 
 void Simulation::updateParticles() {
-    threader.Parallel(particles.size(), [&](int start, int end) {
-        for (int i=start; i<end; i++) {
-            Particle& p = particles[i];
-            p.accelerate({0, 0.000098});
-            p.update(dt);
-        }
-    });
+    for (int i=0; i<(int)particles.size(); i++) {
+        Particle& p = particles[i];
+        p.accelerate({0, 0.000098});
+        p.update(dt);
+    }
 }
 
 void Simulation::drawFrame() {
-    int radius = 351;
-    
-    sf::CircleShape shape = sf::CircleShape(radius);
-    shape.setOrigin({(float)radius, (float)radius}); // Set the origin to the center of the circle
-    shape.setPosition({static_cast<float>(WIDTH) / 2, static_cast<float>(HEIGHT) / 2});
-    shape.setFillColor(sf::Color::Black);
-    shape.setPointCount(128);
-    renderer.getWindow().draw(shape);
-
+    static sf::Texture circleTexture = createCircleTexture(64); // Creates a 64x64 circle texture
     int max_grid_index_x = WIDTH / grid_size;
     int max_grid_index_y = HEIGHT / grid_size;
 
-    shape = sf::CircleShape(particles[0].radius);
-    shape.setOrigin({particles[0].radius, particles[0].radius});
-    shape.setPointCount(16);
-    for (auto &p : particles) {
-        // Draw the particle, x grid index should be shade of green, y grid index should be shade of blue
-        shape.setFillColor(sf::Color(255 * (p.grid_x / (float)max_grid_index_x), 255 * (p.grid_y / (float)max_grid_index_y), 0));
-        shape.setPosition(p.position);
-        renderer.getWindow().draw(shape);
-    }
+    // Create a vertex array large enough to hold 6 vertices per particle (2 triangles per quad)
+    sf::VertexArray circles(sf::PrimitiveType::Triangles, particles.size() * 6);
+
+    threader.Parallel(particles.size(), [&](int start, int end) {
+        for (int i=start; i<end; i++) {
+            const auto& p = particles[i];
+            float x = p.position.x;
+            float y = p.position.y;
+            float r = p.radius;
+            // Compute fill color based on grid indexes (adjust as needed)
+            sf::Color color(
+                (255.f * (p.grid_x / static_cast<float>(max_grid_index_x))),
+                (255.f * (p.grid_y / static_cast<float>(max_grid_index_y))),
+                0
+            );
+            // Index in the vertex array
+            unsigned int index = i * 6;
+            // Define the six vertices (two triangles) for the quad
+            circles[index + 0].position = sf::Vector2f(x - r, y - r); // Top-left
+            circles[index + 1].position = sf::Vector2f(x + r, y - r); // Top-right
+            circles[index + 2].position = sf::Vector2f(x + r, y + r); // Bottom-right
+            circles[index + 3].position = sf::Vector2f(x - r, y - r); // Top-left
+            circles[index + 4].position = sf::Vector2f(x + r, y + r); // Bottom-right
+            circles[index + 5].position = sf::Vector2f(x - r, y + r); // Bottom-left
+
+            float texSize = static_cast<float>(circleTexture.getSize().x); // Assuming square texture
+            circles[index + 0].texCoords = sf::Vector2f(0.f,      0.f);
+            circles[index + 1].texCoords = sf::Vector2f(texSize,  0.f);
+            circles[index + 2].texCoords = sf::Vector2f(texSize,  texSize);
+            circles[index + 3].texCoords = sf::Vector2f(0.f,      0.f);
+            circles[index + 4].texCoords = sf::Vector2f(texSize,  texSize);
+            circles[index + 5].texCoords = sf::Vector2f(0.f,      texSize);
+
+            for (unsigned int j = 0; j < 6; ++j) {
+                circles[index + j].color = color;
+            }
+        }
+    });
+
+    sf::RenderStates states;
+    states.texture = &circleTexture;
+
+    renderer.getWindow().draw(circles, states);
 }
 
 void Simulation::handleGridCollisions(int x, int y) {
@@ -136,7 +180,7 @@ void Simulation::handleGridCollisions(int x, int y) {
 
                 if (distSquared < minDistSquared) {
                     float dist = sqrt(distSquared);
-                    if (dist < 1e-6) dist = 1e-6;
+                    if (dist < 1e-4) dist = 1e-4;
 
                     sf::Vector2f n = v / dist;
                     n *= 0.25f * ((particle1.radius + particle2.radius) - dist);
@@ -214,6 +258,30 @@ void Simulation::circleConstraint() {
     });
 }
 
+void Simulation::boxConstraint() {
+    for (int i=0; i<particles.size(); i++) {
+        Particle& p = particles[i];
+        if (p.position.x < p.radius) {
+            p.position.x = p.radius;
+            sf::Vector2f vel = p.getVelocity();
+            p.setVelocity({-dampening * vel.x, vel.y}, 1.0f);
+        } else if (p.position.x > WIDTH - p.radius) {
+            p.position.x = WIDTH - p.radius;
+            sf::Vector2f vel = p.getVelocity();
+            p.setVelocity({-dampening * vel.x, vel.y}, 1.0f);
+        }
+        if (p.position.y < p.radius) {
+            p.position.y = p.radius;
+            sf::Vector2f vel = p.getVelocity();
+            p.setVelocity({vel.x, -dampening * vel.y}, 1.0f);
+        } else if (p.position.y > HEIGHT - p.radius) {
+            p.position.y = HEIGHT - p.radius;
+            sf::Vector2f vel = p.getVelocity();
+            p.setVelocity({vel.x, -dampening * vel.y}, 1.0f);
+        }
+    }
+}
+
 void Simulation::init_grid() {
     for (int i=0; i<WIDTH / grid_size; i++) {
         for(int j=0; j<HEIGHT / grid_size; j++) {
@@ -225,11 +293,11 @@ void Simulation::init_grid() {
 }
 
 void Simulation::update_grid() {
-    threader.Parallel(grid.size(), [&](int start, int end) {
-        for (int i=start; i<end; i++) {
-            grid[i].clear();
+    for(int i=0; i<WIDTH / grid_size; i++) {
+        for(int j=0; j<HEIGHT / grid_size; j++) {
+            grid[GRID_INDEX(i, j)].clear();
         }
-    });
+    }
     
     for (int i=0; i<(int)particles.size(); i++) {
         Particle& p = particles[i];
