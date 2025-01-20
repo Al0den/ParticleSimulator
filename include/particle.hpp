@@ -13,8 +13,6 @@ public:
     float radius;
     int id = -1;
 
-    int grid_x, grid_y;
-
     Particle() = default;
     Particle(sf::Vector2f position) {
         this->position = position;

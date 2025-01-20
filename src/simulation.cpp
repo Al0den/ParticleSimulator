@@ -7,8 +7,8 @@
 #include "../include/simulation.hpp"
 #include "../include/utils.hpp"
 
-int radius = 4;
-int spawnDelay = 1;
+int radius = 2;
+int spawnDelay = 5;
 
 Simulation::Simulation(Renderer& renderer) : renderer(renderer) {
     particles.push_back(Particle({400, 400}, radius));
@@ -77,21 +77,19 @@ void Simulation::run() {
 
         window.display();
 
-        int spawnX = 300;
-        int spawnY = 100;
+        int spawnX = 100;
+        int spawnY = 10;
 
-        //int num_spawners = fmin(50, frameNum / fps * 5 + 1);
-        int num_spawners = 1;
+        int num_spawners = fmin(80, frameNum / fps * 10 + 1);
+        //int num_spawners = 1;
 
         if(frameNum % spawnDelay == 0) {
             for (int i=0; i<num_spawners; i++) {
-                
-                //float vx = sin(frameNum / 30.0) * 1.5;
-                //float vy = abs(cos(frameNum / 30.0) * 1.5); 
-                float vx = 1;
-                float vy = 0;
+                    
+                float vx = 0.01;
+                float vy = 0.1;
 
-                particles.push_back(Particle({(float)spawnX, (float)spawnY + 2 * i * (radius+1)}, {vx, vy}, radius));
+                particles.push_back(Particle({(float)spawnX + 2 * i * (radius + 1), (float)spawnY}, {vx, vy}, radius));
             }
         }
 
@@ -113,10 +111,7 @@ void Simulation::updateParticles() {
 
 void Simulation::drawFrame() {
     static sf::Texture circleTexture = createCircleTexture(64); // Creates a 64x64 circle texture
-    int max_grid_index_x = WIDTH / grid_size;
-    int max_grid_index_y = HEIGHT / grid_size;
 
-    // Create a vertex array large enough to hold 6 vertices per particle (2 triangles per quad)
     sf::VertexArray circles(sf::PrimitiveType::Triangles, particles.size() * 6);
 
     threader.Parallel(particles.size(), [&](int start, int end) {
@@ -125,15 +120,11 @@ void Simulation::drawFrame() {
             float x = p.position.x;
             float y = p.position.y;
             float r = p.radius;
-            // Compute fill color based on grid indexes (adjust as needed)
-            sf::Color color(
-                (255.f * (p.grid_x / static_cast<float>(max_grid_index_x))),
-                (255.f * (p.grid_y / static_cast<float>(max_grid_index_y))),
-                0
-            );
-            // Index in the vertex array
+
+            sf::Color color(255, 0, 0);
+
             unsigned int index = i * 6;
-            // Define the six vertices (two triangles) for the quad
+
             circles[index + 0].position = sf::Vector2f(x - r, y - r); // Top-left
             circles[index + 1].position = sf::Vector2f(x + r, y - r); // Top-right
             circles[index + 2].position = sf::Vector2f(x + r, y + r); // Bottom-right
@@ -194,7 +185,8 @@ void Simulation::handleGridCollisions(int x, int y) {
 
             for (int j = nStart; j < nEnd; j++) {
                 int p2Index = cellIndices[j];
-                if (p2Index == p1Index) continue;
+
+                if (p1Index == p2Index) continue;
 
                 Particle& p2 = particles[p2Index];
 
@@ -203,11 +195,11 @@ void Simulation::handleGridCollisions(int x, int y) {
 
                 if (distSquared < minDistSquared) {
                     float dist = std::sqrt(distSquared);
-                    if (dist < 1e-6f) dist = 1e-6f;
+                    if (dist < 1e-8f) dist = 1e-8f;
 
                     sf::Vector2f n = v / dist;
 
-                    float overlap = 0.5f * ((p1.radius + p2.radius) - dist);
+                    float overlap = 0.25f * ((p1.radius + p2.radius) - dist);
 
                     if (overlap > 0.0f) {
                         p1.position += n * overlap;
@@ -246,7 +238,7 @@ void Simulation::handleCollisionsGeneral() {
             Particle& p2 = particles[j];
 
             float dist = sqrt(pow(p1.position.x - p2.position.x, 2) + pow(p1.position.y - p2.position.y, 2));
-            if (dist < 1e-6) dist = 1e-6;
+            if (dist < 1e-5) dist = 1e-5;
             float min_dist = p1.radius + p2.radius;
             sf::Vector2f v = p1.position - p2.position;
 
@@ -309,11 +301,6 @@ void Simulation::boxConstraint() {
 }
 
 void Simulation::init_grid() {
-    for (int i=0; i<WIDTH / grid_size; i++) {
-        for(int j=0; j<HEIGHT / grid_size; j++) {
-            grid.push_back(std::vector<int>());
-        }
-    }
     cellOffsets.resize(GRID_WIDTH * GRID_HEIGHT + 1, 0);
     cellIndices.clear();
    
@@ -321,23 +308,6 @@ void Simulation::init_grid() {
 }
 
 void Simulation::update_grid() {
-    // Code for 2d Grid
-    for(int i=0; i<WIDTH / grid_size; i++) {
-        for(int j=0; j<HEIGHT / grid_size; j++) {
-            grid[GRID_INDEX(i, j)].clear();
-        }
-    }
-    
-    for (int i=0; i<(int)particles.size(); i++) {
-        Particle& p = particles[i];
-        p.grid_x = p.position.x / grid_size;
-        p.grid_y = p.position.y / grid_size;
-        p.id = i;
-
-        grid[GRID_INDEX(p.grid_x, p.grid_y)].push_back(i);
-    }
-
-    // GPU Friendly code
     std::vector<int> cellCounts(NUM_CELLS, 0);
 
     for (int i=0; i < (int)particles.size(); i++) {

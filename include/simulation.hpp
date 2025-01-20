@@ -40,8 +40,6 @@ public:
 
     ThreadPool threader{std::thread::hardware_concurrency() * 4};
     
-    std::vector<std::vector<int>> grid;
-
     std::vector<int> cellOffsets;
     std::vector<int> cellIndices;
 

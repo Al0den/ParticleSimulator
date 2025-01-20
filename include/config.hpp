@@ -2,4 +2,4 @@
 
 static const int WIDTH = 800;
 static const int HEIGHT = 800;
-static const int grid_size = 20;
+static const int grid_size = 10;
