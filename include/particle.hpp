@@ -1,55 +1,23 @@
 #pragma once
 
 #include <SFML/Graphics.hpp>
+#include <glm/glm.hpp>
 #include <random>
 
-class Particle {
-public:
-    sf::Vector2f position;
-    sf::Vector2f position_last;
-    sf::Vector2f acceleration;
+struct Particle {
+    glm::vec2 position;
+    glm::vec2 position_last;
+    glm::vec2 acceleration;
 
-    float mass = 1;
+    float mass;
     float radius;
-    int id = -1;
-
-    Particle() = default;
-    Particle(sf::Vector2f position) {
-        this->position = position;
-        this->position_last = position;
-
-    }
-    Particle(sf::Vector2f position, float radius) {
-        this->position = position;
-        this->position_last = position;
-        this->radius = radius;
-    }
-    Particle(sf::Vector2f position, sf::Vector2f velocity, float radius) {
-        this->position = position;
-        this->position_last = position - velocity;
-        this->radius = radius;
-    }
-
-    void update(float dt) {
-        sf::Vector2f displacement = position - position_last;
-        position_last = position;
-        position = position + displacement + acceleration * (dt * dt);
-        acceleration = {};
-    }
-
-    void accelerate(sf::Vector2f a) {
-        acceleration += a;
-    }
-
-    void setVelocity(sf::Vector2f v, float dt) {
-        position_last = position - v * dt;
-    }
-
-    void addVelocity(sf::Vector2f v, float dt) {
-        position_last -= v * dt;
-    }
-
-    sf::Vector2f getVelocity() {
-        return position - position_last;
-    }
 };
+
+Particle create_particle(glm::vec2 position, glm::vec2 position_last, glm::vec2 acceleration, float mass, float radius);
+
+void update_particle(Particle &p, float dt);
+void accelerate_particle(Particle &p, glm::vec2 a);
+void set_particle_velocity(Particle &p, glm::vec2 v, float dt);
+void add_particle_velocity(Particle &p, glm::vec2 v, float dt);
+
+glm::vec2 get_particle_velocity(Particle &p);

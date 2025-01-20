@@ -17,7 +17,7 @@ public:
     int fps = 60;
     float dt = (float)fps / mult;
 
-    float dampening = 0.98;
+    float dampening = 0.6;
 
     Simulation(Renderer& renderer);
 
