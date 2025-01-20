@@ -12,9 +12,9 @@ int spawnDelay = 2;
 
 Simulation::Simulation(Renderer& renderer) : renderer(renderer) {
     particles.push_back(Particle{
-        glm::vec2(400, 400),   // position
-        glm::vec2(400, 400),   // position_last
-        glm::vec2(0, 0),       // acceleration
+        glm::vec3(400, 400, 0),   // position
+        glm::vec3(400, 400, 0),   // position_last
+        glm::vec3{},       // acceleration
         1.0f,                  // mass
         radius                   // radius
     });
@@ -96,9 +96,9 @@ void Simulation::run() {
                 float vy = 0.1;
                 
                 particles.push_back(Particle{
-                    glm::vec2(spawnX + 2 * i * (radius + 1), spawnY),
-                    glm::vec2(spawnX + 2 * i * (radius + 1) - vx, spawnY - vy),
-                    glm::vec2(0, 0),
+                    glm::vec3(spawnX + 2 * i * (radius + 1), spawnY, 0),
+                    glm::vec3(spawnX + 2 * i * (radius + 1) - vx, spawnY - vy, 0),
+                    glm::vec3{},
                     1, 
                     radius
                 });
@@ -116,7 +116,7 @@ void Simulation::run() {
 void Simulation::updateParticles() {
     for (int i=0; i<(int)particles.size(); i++) {
         Particle& p = particles[i];
-        accelerate_particle(p, {0, 0.000098});
+        accelerate_particle(p, {0, 0.000098, 0});
         update_particle(p, dt);
     }
 }
@@ -202,14 +202,14 @@ void Simulation::handleGridCollisions(int x, int y) {
 
                 Particle& p2 = particles[p2Index];
 
-                glm::vec2 v = p1.position - p2.position;
+                glm::vec3 v = p1.position - p2.position;
                 float distSquared = v.x * v.x + v.y * v.y;
 
                 if (distSquared < minDistSquared) {
                     float dist = std::sqrt(distSquared);
                     if (dist < 1e-8f) dist = 1e-8f;
 
-                    glm::vec2 n = v / dist;
+                    glm::vec3 n = v / dist;
 
                     float overlap = 0.25f * ((p1.radius + p2.radius) - dist);
 
@@ -252,10 +252,10 @@ void Simulation::handleCollisionsGeneral() {
             float dist = sqrt(pow(p1.position.x - p2.position.x, 2) + pow(p1.position.y - p2.position.y, 2));
             if (dist < 1e-5) dist = 1e-5;
             float min_dist = p1.radius + p2.radius;
-            glm::vec2 v = p1.position - p2.position;
+            glm::vec3 v = p1.position - p2.position;
 
             if (dist < p1.radius + p2.radius) {
-                glm::vec2 n = v / dist;
+                glm::vec3 n = v / dist;
                 float delta = 0.5f * (min_dist - dist);
 
                 p1.position += n * 0.5f * delta;
@@ -270,17 +270,17 @@ void Simulation::circleConstraint() {
     int center_y = HEIGHT / 2;
     int radius = 350;
 
-    glm::vec2 boundary_center = {static_cast<float>(center_x), static_cast<float>(center_y)};
+    glm::vec3 boundary_center = {static_cast<float>(center_x), static_cast<float>(center_y), 0};
 
     threader.Parallel(particles.size(), [&](int start, int end) {
         for (int i=start; i<end; i++) {
             Particle& p = particles[i];
             float dist = std::sqrt(std::pow(p.position.x - center_x, 2) + std::pow(p.position.y - center_y, 2));
-            glm::vec2 r = boundary_center - p.position;
+            glm::vec3 r = boundary_center - p.position;
             if (dist > radius - p.radius) {
-                glm::vec2 n = r / dist; // Normalize
-                glm::vec2 perp = {-n.y, n.x};
-                glm::vec2 vel = get_particle_velocity(p);
+                glm::vec3 n = r / dist; // Normalize
+                glm::vec3 perp = {-n.y, n.x, 0};
+                glm::vec3 vel = get_particle_velocity(p);
                 p.position = boundary_center - n * (radius - p.radius);
                 set_particle_velocity(p, dampening * 2.0f * (vel.x * perp.x + vel.y * perp.y) * perp - vel, 1.0f);
             }
@@ -292,31 +292,26 @@ void Simulation::boxConstraint() {
     for (int i = 0; i < (int)particles.size(); i++) {
         Particle& p = particles[i];
 
-        glm::vec2 vel = p.position - p.position_last;
+        glm::vec3 vel = p.position - p.position_last;
 
         if (p.position.x < p.radius) {
             p.position.x = p.radius;
             vel.x = -dampening * vel.x;  // Flip and dampen x-velocity
         }
-        // Right boundary
         else if (p.position.x > WIDTH - p.radius) {
             p.position.x = WIDTH - p.radius;
             vel.x = -dampening * vel.x;
         }
 
-        // Top boundary
         if (p.position.y < p.radius) {
             p.position.y = p.radius;
             vel.y = -dampening * vel.y;  // Flip and dampen y-velocity
         }
-        // Bottom boundary
         else if (p.position.y > HEIGHT - p.radius) {
             p.position.y = HEIGHT - p.radius;
             vel.y = -dampening * vel.y;
         }
 
-        // Update position_last based on the new velocity
-        // so the Verlet approach is consistent.
         set_particle_velocity(p, vel, 1.0f);
     }
 }
