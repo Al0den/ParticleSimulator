@@ -58,8 +58,6 @@ void Simulation::run() {
             }
         }
 
-
-
         window.clear(sf::Color::White);
 
         frameNum++;
