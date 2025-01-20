@@ -7,7 +7,7 @@
 #include "../include/simulation.hpp"
 #include "../include/utils.hpp"
 
-int radius = 2;
+int radius = 4;
 int spawnDelay = 1;
 
 Simulation::Simulation(Renderer& renderer) : renderer(renderer) {
@@ -80,14 +80,16 @@ void Simulation::run() {
         int spawnX = 300;
         int spawnY = 100;
 
-        int num_spawners = fmin(50, frameNum / fps * 5 + 1);
-        //int num_spawners = 10;
+        //int num_spawners = fmin(50, frameNum / fps * 5 + 1);
+        int num_spawners = 1;
 
         if(frameNum % spawnDelay == 0) {
             for (int i=0; i<num_spawners; i++) {
                 
-                float vx = sin(frameNum / 30.0) * 1.5;
-                float vy = abs(cos(frameNum / 30.0) * 1.5); 
+                //float vx = sin(frameNum / 30.0) * 1.5;
+                //float vy = abs(cos(frameNum / 30.0) * 1.5); 
+                float vx = 1;
+                float vy = 0;
 
                 particles.push_back(Particle({(float)spawnX, (float)spawnY + 2 * i * (radius+1)}, {vx, vy}, radius));
             }
@@ -161,30 +163,56 @@ void Simulation::drawFrame() {
 
 void Simulation::handleGridCollisions(int x, int y) {
     static float minDistSquared = pow((particles[0].radius * 2), 2);
-    static std::vector<sf::Vector2i> toCheckOffsets = {{0, 0}, {1, 0}, {0, 1}, {1, 1}, {-1, 1}};
 
-    for (auto &p1 : grid[GRID_INDEX(x, y)]) {
-        for (auto &gridPos : toCheckOffsets) {
-            int grid_x = x + gridPos.x;
-            int grid_y = y + gridPos.y;
-            if (grid_x < 0 || grid_x >= GRID_WIDTH || grid_y < 0 || grid_y >= GRID_HEIGHT) continue;
+    static std::vector<sf::Vector2i> toCheckOffsets = {
+        {0, 0},  // the cell itself
+        {1, 0},  // cell to the right
+        {0, 1},  // cell below
+        {1, 1},  // diagonal cell
+        {-1, 1}  // diagonal to the left, etc.
+    };
 
-            for (auto &p2 : grid[GRID_INDEX(grid_x, grid_y)]) {
-                Particle& particle1 = particles[p1];
-                Particle& particle2 = particles[p2];
-                
-                sf::Vector2f v = particle1.position - particle2.position;
+    int cellIndex = GRID_INDEX(x, y);
+    int start = cellOffsets[cellIndex];
+    int end   = cellOffsets[cellIndex + 1];
+
+    for (int i = start; i < end; i++) {
+        int p1Index = cellIndices[i];
+        Particle& p1 = particles[p1Index];
+
+        for (auto& offset : toCheckOffsets) {
+            int nx = x + offset.x;
+            int ny = y + offset.y;
+
+            if (nx < 0 || nx >= GRID_WIDTH || ny < 0 || ny >= GRID_HEIGHT) {
+                continue;
+            }
+
+            int neighborIndex = GRID_INDEX(nx, ny);
+            int nStart = cellOffsets[neighborIndex];
+            int nEnd   = cellOffsets[neighborIndex + 1];
+
+            for (int j = nStart; j < nEnd; j++) {
+                int p2Index = cellIndices[j];
+                if (p2Index == p1Index) continue;
+
+                Particle& p2 = particles[p2Index];
+
+                sf::Vector2f v = p1.position - p2.position;
                 float distSquared = v.x * v.x + v.y * v.y;
 
                 if (distSquared < minDistSquared) {
-                    float dist = sqrt(distSquared);
-                    if (dist < 1e-4) dist = 1e-4;
+                    float dist = std::sqrt(distSquared);
+                    if (dist < 1e-6f) dist = 1e-6f;
 
                     sf::Vector2f n = v / dist;
-                    n *= 0.25f * ((particle1.radius + particle2.radius) - dist);
 
-                    particle1.position += n;
-                    particle2.position -= n;
+                    float overlap = 0.5f * ((p1.radius + p2.radius) - dist);
+
+                    if (overlap > 0.0f) {
+                        p1.position += n * overlap;
+                        p2.position -= n * overlap;
+                    }
                 }
             }
         }
@@ -286,11 +314,14 @@ void Simulation::init_grid() {
             grid.push_back(std::vector<int>());
         }
     }
-    
+    cellOffsets.resize(GRID_WIDTH * GRID_HEIGHT + 1, 0);
+    cellIndices.clear();
+   
     update_grid();
 }
 
 void Simulation::update_grid() {
+    // Code for 2d Grid
     for(int i=0; i<WIDTH / grid_size; i++) {
         for(int j=0; j<HEIGHT / grid_size; j++) {
             grid[GRID_INDEX(i, j)].clear();
@@ -304,5 +335,41 @@ void Simulation::update_grid() {
         p.id = i;
 
         grid[GRID_INDEX(p.grid_x, p.grid_y)].push_back(i);
+    }
+
+    // GPU Friendly code
+    std::vector<int> cellCounts(NUM_CELLS, 0);
+
+    for (int i=0; i < (int)particles.size(); i++) {
+        Particle& p = particles[i];
+
+        int gx = (int)(p.position.x / grid_size);
+        int gy = (int)(p.position.y / grid_size);
+
+        int cellIndex = gx + gy * GRID_WIDTH;
+        cellCounts[cellIndex]++;
+    }
+
+    cellOffsets[0] = 0;
+    for (int i = 1; i <= NUM_CELLS; i++) {
+        cellOffsets[i] = cellOffsets[i - 1] + cellCounts[i - 1];
+    }
+
+    cellIndices.resize(cellOffsets[NUM_CELLS]);
+
+    std::fill(cellCounts.begin(), cellCounts.end(), 0);
+
+    for (int i = 0; i < (int)particles.size(); i++) {
+        Particle& p = particles[i];
+        int gx = (int)(p.position.x / grid_size);
+        int gy = (int)(p.position.y / grid_size);
+
+        int cellIndex = gx + gy * GRID_WIDTH;
+
+        int offset = cellOffsets[cellIndex];
+        int writePos = offset + cellCounts[cellIndex];
+
+        cellIndices[writePos] = i;
+        cellCounts[cellIndex]++;
     }
 }
