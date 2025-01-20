@@ -2,7 +2,6 @@
 
 #include <SFML/Graphics.hpp>
 #include <glm/glm.hpp>
-#include <random>
 
 struct Particle {
     glm::vec3 position;

@@ -3,3 +3,4 @@
 simulation.trace
 simulation
 *.o
+cpp_files_*

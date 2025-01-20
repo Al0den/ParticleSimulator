@@ -17,6 +17,9 @@ profile:
 	xctrace record --output simulation.trace --template "Time Profiler" --launch -- ./simulation 
 	open simulation.trace
 
+dump:
+	find src/ -type f -name "*.cpp" -exec sh -c 'echo "File: {}" && echo && cat "{}" && echo "\n\n"' \; > cpp_files_with_content.txt
+
 $(TARGET): $(OBJS)
 	$(CXX) -pg -o $@ $^ $(LDFLAGS)
 

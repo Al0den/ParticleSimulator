@@ -22,7 +22,6 @@ public:
     Simulation(Renderer& renderer);
 
     void run();
-    void drawFrame();
     
     void updateParticles();
     
