@@ -8,6 +8,8 @@ Renderer::Renderer() : window(sf::VideoMode({WIDTH, HEIGHT}), "Particle Simulato
 
 
 void Renderer::drawFrame(std::vector<Particle> particles) {
+    window.clear(sf::Color::Black);
+
     static sf::Texture circleTexture = createCircleTexture(64); // Creates a 64x64 circle texture
 
     sf::VertexArray circles(sf::PrimitiveType::Triangles, particles.size() * 6);
@@ -19,7 +21,7 @@ void Renderer::drawFrame(std::vector<Particle> particles) {
             float y = p.position.y;
             float r = p.radius;
 
-            sf::Color color(255, 0, 0);
+            sf::Color color(0, 255, 0);
 
             unsigned int index = i * 6;
 

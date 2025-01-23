@@ -12,6 +12,7 @@ public:
     Renderer(const Renderer&) = delete;
 
     Renderer();
+    ~Renderer() = default;
 
     sf::RenderWindow& getWindow() {
         return window;

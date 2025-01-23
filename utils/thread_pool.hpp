@@ -27,6 +27,19 @@ private:
     bool stop;
 };
 
+inline ThreadPool::~ThreadPool() {
+    {
+        std::unique_lock<std::mutex> lock(queueMutex);
+        stop = true;
+    }
+    condition.notify_all();
+    for (std::thread& worker : workers) {
+        if (worker.joinable()) {
+            worker.join();
+        }
+    }
+}
+
 inline ThreadPool::ThreadPool(size_t numThreads) : stop(false) {
     for (size_t i = 0; i < numThreads; ++i) {
         workers.emplace_back([this] {
@@ -43,19 +56,6 @@ inline ThreadPool::ThreadPool(size_t numThreads) : stop(false) {
                 task();
             }
         });
-    }
-}
-
-inline ThreadPool::~ThreadPool() {
-    {
-        std::unique_lock<std::mutex> lock(queueMutex);
-        stop = true;
-    }
-    condition.notify_all();
-    for (std::thread& worker : workers) {
-        if (worker.joinable()) {
-            worker.join();
-        }
     }
 }
 

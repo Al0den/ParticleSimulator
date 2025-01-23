@@ -41,13 +41,13 @@ void Simulation::run() {
     sf::Text fpsText(font, "FPS: ");
     fpsText.setFont(font);
     fpsText.setCharacterSize(18); // Set font size
-    fpsText.setFillColor(sf::Color::Black); // Set text color
+    fpsText.setFillColor(sf::Color::White); // Set text color
     fpsText.setPosition({10.f, 10.f}); // Top-left corner of the screen
 
     sf::Text numParticlesText(font, "Particles: " + std::to_string(particles.size()));
     numParticlesText.setFont(font);
     numParticlesText.setCharacterSize(18); // Set font size
-    numParticlesText.setFillColor(sf::Color::Black); // Set text color
+    numParticlesText.setFillColor(sf::Color::White); // Set text color
     numParticlesText.setPosition({10.f, 30.f}); // Top-left corner of the screen
 
     float liveFps;
@@ -87,7 +87,7 @@ void Simulation::run() {
         int spawnX = 100;
         int spawnY = 10;
 
-        int num_spawners = fmin(80, frameNum / fps * 10 + 1);
+        int num_spawners = fmin(100, frameNum / fps * 10 + 1);
         //int num_spawners = 1;
 
         if(frameNum % spawnDelay == 0) {

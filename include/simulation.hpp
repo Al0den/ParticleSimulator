@@ -20,6 +20,7 @@ public:
     float dampening = 0.6;
 
     Simulation(Renderer& renderer);
+    ~Simulation() = default;
 
     void run();
     
