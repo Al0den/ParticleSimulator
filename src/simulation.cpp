@@ -2,21 +2,17 @@
 #include <chrono>
 #include <thread>
 #include <cmath>
-#include <SFML/Graphics.hpp>
 
 #include "../include/simulation.hpp"
-#include "../include/utils.hpp"
 
-float radius = 2;
-int spawnDelay = 2;
-
-Simulation::Simulation(Renderer& renderer) : renderer(renderer) {
+Simulation::Simulation(VulkanCompute &vulkanHandler, int width, int height) : vulkanHandler(vulkanHandler) {
+    setWindowSize(width, height);
     particles.push_back(Particle{
-        glm::vec3(400, 400, 0),   // position
-        glm::vec3(400, 400, 0),   // position_last
+        glm::vec3(width/2, height/2, 0),   // position
+        glm::vec3(width/2, height/2, 0),   // position_last
         glm::vec3{},       // acceleration
         1.0f,                  // mass
-        radius                   // radius
+        2                   // radius
     });
     init_grid();
     return;
@@ -27,94 +23,16 @@ int max(int a, int b) {
     return b;
 }
 
-void Simulation::run() {
-    auto prevTime = std::chrono::high_resolution_clock::now();
-
-    sf::RenderWindow& window = renderer.getWindow();
-    sf::Font font;
-
-    if(!font.openFromFile("/Users/alois/Downloads/helvetica-255/Helvetica.ttf")) {
-        printf("Failed to load font\n");
-        return;
-    }
-
-    sf::Text fpsText(font, "FPS: ");
-    fpsText.setFont(font);
-    fpsText.setCharacterSize(18); // Set font size
-    fpsText.setFillColor(sf::Color::White); // Set text color
-    fpsText.setPosition({10.f, 10.f}); // Top-left corner of the screen
-
-    sf::Text numParticlesText(font, "Particles: " + std::to_string(particles.size()));
-    numParticlesText.setFont(font);
-    numParticlesText.setCharacterSize(18); // Set font size
-    numParticlesText.setFillColor(sf::Color::White); // Set text color
-    numParticlesText.setPosition({10.f, 30.f}); // Top-left corner of the screen
-
-    float liveFps;
-
-
-    while (window.isOpen()) {
-        while (const std::optional event = window.pollEvent()) {
-            if(event->is<sf::Event::Closed>()) {
-                window.close();
-            } else if (const auto* keyPressed = event->getIf<sf::Event::KeyPressed>()) {
-                if (keyPressed->scancode == sf::Keyboard::Scancode::Escape) {
-                    window.close();
-                }
-            }
-        }
-
-        window.clear(sf::Color::White);
-
-        frameNum++;
-
-        for (int i=0; i<mult; i++) {
-            updateParticles();
-            handleCollisions();
-            boxConstraint();
-            update_grid();
-        }
-
-        renderer.drawFrame(particles);
-
-        fpsText.setString("FPS: " + std::to_string((int)liveFps));
-        numParticlesText.setString("Particles: " + std::to_string(particles.size()));
-        window.draw(fpsText);
-        window.draw(numParticlesText);
-
-        window.display();
-
-        int spawnX = 100;
-        int spawnY = 10;
-
-        int num_spawners = fmin(100, frameNum / fps * 10 + 1);
-        //int num_spawners = 1;
-
-        if(frameNum % spawnDelay == 0) {
-            for (int i=0; i<num_spawners; i++) {
-                    
-                float vx = 0.1;
-                float vy = 0.1;
-                
-                particles.push_back(Particle{
-                    glm::vec3(spawnX + 2 * i * (radius + 1), spawnY, 0),
-                    glm::vec3(spawnX + 2 * i * (radius + 1) - vx, spawnY - vy, 0),
-                    glm::vec3{},
-                    1, 
-                    radius
-                });
-            }
-        }
-
-        int timeSpentMS = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - prevTime).count();
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(max(0, (int)(1000/this->fps) - timeSpentMS)));
-        liveFps = 1.0 / std::chrono::duration_cast<std::chrono::duration<float>>(std::chrono::high_resolution_clock::now() - prevTime).count();
-        prevTime = std::chrono::high_resolution_clock::now();
+void Simulation::run(int num_iterations, float dt, int frameNum) {
+    for (int i=0; i<num_iterations; i++) {
+        updateParticles(dt);
+        handleCollisions();
+        boxConstraint();
+        update_grid();
     }
 }
 
-void Simulation::updateParticles() {
+void Simulation::updateParticles(float dt) {
     for (int i=0; i<(int)particles.size(); i++) {
         Particle& p = particles[i];
         accelerate_particle(p, {0, 0.000098, 0});
@@ -125,15 +43,11 @@ void Simulation::updateParticles() {
 void Simulation::handleGridCollisions(int x, int y) {
     static float minDistSquared = pow((particles[0].radius * 2), 2);
 
-    static std::vector<sf::Vector2i> toCheckOffsets = {
-        {0, 0},  // the cell itself
-        {1, 0},  // cell to the right
-        {0, 1},  // cell below
-        {1, 1},  // diagonal cell
-        {-1, 1}  // diagonal to the left, etc.
+    static std::vector<glm::vec2> toCheckOffsets = {
+        {0, 0}, {1, 0}, {0, 1}, {1, 1}, {-1, 1} 
     };
 
-    int cellIndex = GRID_INDEX(x, y);
+    int cellIndex = grid_index(x, y);
     int start = cellOffsets[cellIndex];
     int end   = cellOffsets[cellIndex + 1];
 
@@ -145,11 +59,11 @@ void Simulation::handleGridCollisions(int x, int y) {
             int nx = x + offset.x;
             int ny = y + offset.y;
 
-            if (nx < 0 || nx >= GRID_WIDTH || ny < 0 || ny >= GRID_HEIGHT) {
+            if (nx < 0 || nx >= grid_width || ny < 0 || ny >= grid_height) {
                 continue;
             }
 
-            int neighborIndex = GRID_INDEX(nx, ny);
+            int neighborIndex = grid_index(nx, ny);
             int nStart = cellOffsets[neighborIndex];
             int nEnd   = cellOffsets[neighborIndex + 1];
 
@@ -182,17 +96,17 @@ void Simulation::handleGridCollisions(int x, int y) {
 }
 
 void Simulation::handleCollisions() {
-    threader.Parallel(GRID_HEIGHT, [&](int start, int end) {
+    threader.Parallel(grid_height, [&](int start, int end) {
         for (int i=start; i<end; i += 2) {
-            for (int j=0; j<GRID_WIDTH; j++) {
+            for (int j=0; j<grid_width; j++) {
                 handleGridCollisions(j, i);
             }
         }
     });
         
-    threader.Parallel(GRID_HEIGHT, [&](int start, int end) {
+    threader.Parallel(grid_height, [&](int start, int end) {
         for (int i=start; i<end; i += 2) {
-            for (int j=0; j<GRID_WIDTH; j++) {
+            for (int j=0; j<grid_width; j++) {
                 handleGridCollisions(j, i+1);
             }
         }
@@ -224,8 +138,8 @@ void Simulation::handleCollisionsGeneral() {
 }
 
 void Simulation::circleConstraint() {
-    int center_x = WIDTH / 2;
-    int center_y = HEIGHT / 2;
+    int center_x = width / 2;
+    int center_y = height / 2;
     int radius = 350;
 
     glm::vec3 boundary_center = {static_cast<float>(center_x), static_cast<float>(center_y), 0};
@@ -256,8 +170,8 @@ void Simulation::boxConstraint() {
             p.position.x = p.radius;
             vel.x = -dampening * vel.x;  // Flip and dampen x-velocity
         }
-        else if (p.position.x > WIDTH - p.radius) {
-            p.position.x = WIDTH - p.radius;
+        else if (p.position.x > width - p.radius) {
+            p.position.x = width - p.radius;
             vel.x = -dampening * vel.x;
         }
 
@@ -265,8 +179,8 @@ void Simulation::boxConstraint() {
             p.position.y = p.radius;
             vel.y = -dampening * vel.y;  // Flip and dampen y-velocity
         }
-        else if (p.position.y > HEIGHT - p.radius) {
-            p.position.y = HEIGHT - p.radius;
+        else if (p.position.y > height - p.radius) {
+            p.position.y = height - p.radius;
             vel.y = -dampening * vel.y;
         }
 
@@ -275,14 +189,14 @@ void Simulation::boxConstraint() {
 }
 
 void Simulation::init_grid() {
-    cellOffsets.resize(GRID_WIDTH * GRID_HEIGHT + 1, 0);
+    cellOffsets.resize(grid_width * grid_height + 1, 0);
     cellIndices.clear();
    
     update_grid();
 }
 
 void Simulation::update_grid() {
-    std::vector<int> cellCounts(NUM_CELLS, 0);
+    std::vector<int> cellCounts(num_cells(), 0);
 
     for (int i=0; i < (int)particles.size(); i++) {
         Particle& p = particles[i];
@@ -290,16 +204,16 @@ void Simulation::update_grid() {
         int gx = (int)(p.position.x / grid_size);
         int gy = (int)(p.position.y / grid_size);
 
-        int cellIndex = gx + gy * GRID_WIDTH;
+        int cellIndex = gx + gy * grid_width;
         cellCounts[cellIndex]++;
     }
 
     cellOffsets[0] = 0;
-    for (int i = 1; i <= NUM_CELLS; i++) {
+    for (int i = 1; i <= num_cells(); i++) {
         cellOffsets[i] = cellOffsets[i - 1] + cellCounts[i - 1];
     }
 
-    cellIndices.resize(cellOffsets[NUM_CELLS]);
+    cellIndices.resize(cellOffsets[num_cells()]);
 
     std::fill(cellCounts.begin(), cellCounts.end(), 0);
 
@@ -308,7 +222,7 @@ void Simulation::update_grid() {
         int gx = (int)(p.position.x / grid_size);
         int gy = (int)(p.position.y / grid_size);
 
-        int cellIndex = gx + gy * GRID_WIDTH;
+        int cellIndex = gx + gy * grid_width;
 
         int offset = cellOffsets[cellIndex];
         int writePos = offset + cellCounts[cellIndex];
@@ -316,4 +230,12 @@ void Simulation::update_grid() {
         cellIndices[writePos] = i;
         cellCounts[cellIndex]++;
     }
+}
+
+
+void Simulation::setWindowSize(int width, int height) {
+    this->width = width;
+    this->height = height;
+    this->grid_width = width / grid_size;
+    this->grid_height = height / grid_size;
 }

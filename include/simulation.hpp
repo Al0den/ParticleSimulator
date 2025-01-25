@@ -1,30 +1,23 @@
 #pragma once
 
-#include "../include/renderer.hpp"
 #include "../include/particle.hpp"
 #include "../include/config.hpp"
+#include "../include/vulkan.hpp"
 
 #include "../utils/thread_pool.hpp"
 
-#define GRID_WIDTH (WIDTH / grid_size)
-#define GRID_HEIGHT (HEIGHT / grid_size)
-#define GRID_INDEX(x, y) ((x) + (GRID_WIDTH * (y)))
-#define NUM_CELLS   (GRID_WIDTH * GRID_HEIGHT)
-
 class Simulation {
 public:
-    int mult = 10;
-    int fps = 60;
-    float dt = (float)fps / mult;
-
     float dampening = 0.6;
 
-    Simulation(Renderer& renderer);
+    int grid_size = 10;
+
+    Simulation(VulkanCompute& vulkanHandler, int width, int height);
     ~Simulation() = default;
 
-    void run();
+    void run(int num_iterations, float dt, int frameNum);
     
-    void updateParticles();
+    void updateParticles(float dt);
     
     void boxConstraint();
     void circleConstraint();
@@ -43,8 +36,13 @@ public:
     std::vector<int> cellOffsets;
     std::vector<int> cellIndices;
 
-private:
-    Renderer& renderer;
+    int width, height, grid_width, grid_height;
 
-    int frameNum = 0;
+    const inline int grid_index(int x, int y) { return x + grid_width * y; }
+    const inline int num_cells() { return grid_width * grid_height; }
+
+    void setWindowSize(int width, int height);
+
+private:
+    VulkanCompute &vulkanHandler;
 };

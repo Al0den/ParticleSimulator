@@ -1,6 +1,7 @@
 #pragma once
 
-#include <SFML/Graphics.hpp>
+#include "../include/particle.hpp"
+
 #include <glm/glm.hpp>
 
 struct Particle {

@@ -1,9 +1,9 @@
 CXX=g++
 CXFLAGS= -std=c++20 -O3 -g
-LDFLAGS = -lsfml-graphics -lsfml-window -lsfml-system -g
+LDFLAGS = -lSDL2 -g $(pkg-config --libs vulkan) -lvulkan.1.3.290 
 
 TARGET=simulation
-SRCS=$(wildcard src/*.cpp)
+SRCS=$(wildcard src/*.cpp) $(wildcard utils/vkbootstrap/*.cpp)
 OBJS=$(SRCS:.cpp=.o)
 
 build: $(TARGET)
