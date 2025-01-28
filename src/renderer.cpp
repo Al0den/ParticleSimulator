@@ -4,12 +4,18 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 
+#include <SDL2/SDL_vulkan.h>
+
 Renderer::Renderer() {
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
         throw std::runtime_error("Failed to initialize SDL");
     }
 
-    window = SDL_CreateWindow("Particle Simulator", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, window_width, window_height, SDL_WINDOW_SHOWN);
+    if(SDL_Vulkan_LoadLibrary(nullptr) != 0) {
+        throw std::runtime_error("Failed to load Vulkan library");
+    }
+
+    window = SDL_CreateWindow("Particle Simulator", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, window_width, window_height, SDL_WINDOW_VULKAN | SDL_WINDOW_SHOWN);
     if (!window) {
         throw std::runtime_error("Failed to create SDL window");
     }

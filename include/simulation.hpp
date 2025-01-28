@@ -2,7 +2,7 @@
 
 #include "../include/particle.hpp"
 #include "../include/config.hpp"
-#include "../include/vulkan.hpp"
+#include "../include/metal.hpp"
 
 #include "../utils/thread_pool.hpp"
 
@@ -12,7 +12,7 @@ public:
 
     int grid_size = 10;
 
-    Simulation(VulkanCompute& vulkanHandler, int width, int height);
+    Simulation(MetalCompute& metalHandler, int width, int height);
     ~Simulation() = default;
 
     void run(int num_iterations, float dt, int frameNum);
@@ -44,5 +44,5 @@ public:
     void setWindowSize(int width, int height);
 
 private:
-    VulkanCompute &vulkanHandler;
+    MetalCompute &metalHandler;
 };

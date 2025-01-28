@@ -1,13 +1,20 @@
+#define NS_PRIVATE_IMPLEMENTATION 
+#define CA_PRIVATE_IMPLEMENTATION 
+#define MTL_PRIVATE_IMPLEMENTATION
+
 #include "../include/renderer.hpp"
+#include "../include/metal.hpp"
 #include "../include/simulation.hpp"
-#include "../include/vulkan.hpp"
+
+#include "/Users/alois/Desktop/projects/CustomUtils/print.hpp"
 
 #include <chrono>
 
+
 int main() {
-    Renderer renderer;
-    VulkanCompute vulkanHandler;
-    Simulation simulation(vulkanHandler, renderer.get_width(), renderer.get_height());
+    Renderer renderer{};
+    MetalCompute metalCompute{};
+    Simulation simulation(metalCompute, renderer.get_width(), renderer.get_height());
 
     auto prevTime = std::chrono::high_resolution_clock::now();
 

@@ -1,14 +1,19 @@
-CXX=g++
-CXFLAGS= -std=c++20 -O3 -g
-LDFLAGS = -lSDL2 -g $(pkg-config --libs vulkan) -lvulkan.1.3.290 
-
+CXX = g++
+CXXFLAGS = -std=c++20 -O3 -g 
+LDFLAGS = -g -lSDL2 \
+        -framework Metal \
+        -framework Foundation \
+      
 TARGET=simulation
 SRCS=$(wildcard src/*.cpp) $(wildcard utils/vkbootstrap/*.cpp)
 OBJS=$(SRCS:.cpp=.o)
 
+SHADERS=$(wildcard shaders/*.metal)
+SHADERS_OBJS=$(SHADERS:.metal=.metallib)
+
 build: $(TARGET)
 
-run: $(TARGET)
+run: $(TARGET) 
 	./$(TARGET)
 
 profile:
@@ -20,12 +25,15 @@ profile:
 dump:
 	find src/ -type f -name "*.cpp" -exec sh -c 'echo "File: {}" && echo && cat "{}" && echo "\n\n"' \; > cpp_files_with_content.txt
 
-$(TARGET): $(OBJS)
-	$(CXX) -pg -o $@ $^ $(LDFLAGS)
+$(TARGET): $(OBJS) $(SHADERS_OBJS)
+	$(CXX) -pg -o $@ $(OBJS) $(LDFLAGS)
+
 
 %.o: %.cpp
-	$(CXX) -pg $(CXFLAGS) -c $< -o $@
+	$(CXX) -pg $(CXXFLAGS) -c $< -o $@
 
+%.metallib: %.metal
+	xcrun -sdk macosx metal -frecord-sources=flat $< -o $@
 clean:
 	rm -rf $(OBJS) $(TARGET)
 

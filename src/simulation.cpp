@@ -3,9 +3,12 @@
 #include <thread>
 #include <cmath>
 
+#include "/Users/alois/Desktop/projects/CustomUtils/print.hpp"
 #include "../include/simulation.hpp"
 
-Simulation::Simulation(VulkanCompute &vulkanHandler, int width, int height) : vulkanHandler(vulkanHandler) {
+#define USE_SHADER true
+
+Simulation::Simulation(MetalCompute &metalHandler, int width, int height) : metalHandler(metalHandler) {
     setWindowSize(width, height);
     particles.push_back(Particle{
         glm::vec3(width/2, height/2, 0),   // position
@@ -24,10 +27,27 @@ int max(int a, int b) {
 }
 
 void Simulation::run(int num_iterations, float dt, int frameNum) {
+     
     for (int i=0; i<num_iterations; i++) {
-        updateParticles(dt);
-        handleCollisions();
-        boxConstraint();
+        std::vector<float> constants = {(float)particles.size(), 
+                                        (float)cellIndices.size(), 
+                                        (float)cellOffsets.size(), 
+                                        (float)grid_size, 
+                                        (float)width, 
+                                        (float)height, 
+                                        dt};
+        if(USE_SHADER) {
+            metalHandler.updateBuffers(particles, cellIndices, cellOffsets, constants);
+            metalHandler.update_particles();
+            metalHandler.handle_collisions(grid_size);
+            metalHandler.handle_box_constraints();
+            metalHandler.loadFromBuffers(particles);
+        } else {
+            updateParticles(dt);
+            handleCollisions();
+            boxConstraint();
+        }
+
         update_grid();
     }
 }

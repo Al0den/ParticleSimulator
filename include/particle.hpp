@@ -4,6 +4,9 @@
 
 #include <glm/glm.hpp>
 
+#include <string>
+#include <sstream>
+
 struct Particle {
     glm::vec3 position;
     glm::vec3 position_last;
@@ -11,6 +14,16 @@ struct Particle {
 
     float mass;
     float radius;
+
+    std::string _print() const {
+        std::ostringstream oss;
+        oss << "Particle("
+            << "Position: {" << (int)position.x << ", " << (int)position.y << ", " << (int)position.z << "}, "
+            << "Mass: " << mass << ", "
+            << "Radius: " << radius
+            << ")";
+        return oss.str();
+    }
 };
 
 Particle create_particle(glm::vec3 position, glm::vec3 position_last, glm::vec2 acceleration, float mass, float radius);
