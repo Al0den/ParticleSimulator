@@ -1,5 +1,6 @@
 #include "../include/metal.hpp"
 #include "../include/particle.hpp"
+#include "../include/config.hpp"
 
 #include <Foundation/NSString.hpp>
 #include <Metal/MTLResource.hpp>
@@ -13,7 +14,7 @@ void MetalCompute::init_metal() {
     createBuffers();
 }
 
-void MetalCompute::updateBuffers(std::vector<Particle> vec_particles, std::vector<int> vec_indices, std::vector<int> vec_offsets, std::vector<float> vec_constants) {
+void MetalCompute::updateBuffers(std::vector<Particle> vec_particles, std::vector<int> vec_indices, std::vector<int> vec_offsets, Constants c) {
     num_particles = vec_particles.size();
     num_indices = vec_indices.size();
     num_offsets = vec_offsets.size();
@@ -38,17 +39,22 @@ void MetalCompute::updateBuffers(std::vector<Particle> vec_particles, std::vecto
         offsets->release();
         offsets = device->newBuffer(sizeof(int) * offsets_buf_max, MTL::ResourceStorageModeShared);
     }
+    if(num_cellCounts < c.grid_width * c.grid_height) {
+        cellCounts->release();
+        cellCounts = device->newBuffer(sizeof(int) * c.grid_width * c.grid_height, MTL::ResourceStorageModeShared);
+        num_cellCounts = c.grid_width * c.grid_height;
+    }
 
     memcpy(particles->contents(), vec_particles.data(), sizeof(Particle) * num_particles);
     memcpy(indices->contents(), vec_indices.data(), sizeof(int) * num_indices);
     memcpy(offsets->contents(), vec_offsets.data(), sizeof(int) * num_offsets);
-    memcpy(constants->contents(), vec_constants.data(), sizeof(float) * constants_size);
+    memcpy(constants->contents(), &c, sizeof(Constants));
     memset(deltas->contents(), 0, sizeof(glm::vec3) * num_particles * 3);
 
     particles->didModifyRange(NS::Range{0, sizeof(Particle) * num_particles});
     indices->didModifyRange(NS::Range{0, sizeof(int) * num_indices});
     offsets->didModifyRange(NS::Range{0, sizeof(int) * num_offsets});
-    constants->didModifyRange(NS::Range{0, sizeof(float) * constants_size});
+    constants->didModifyRange(NS::Range{0, sizeof(Constants)});
     deltas->didModifyRange(NS::Range({0, sizeof(float) * num_particles * 3 }));
 }
 
@@ -152,7 +158,7 @@ void MetalCompute::createBuffers() {
         throw std::runtime_error("Failed to create particles buffer");
     }
 
-    constants = device->newBuffer(sizeof(float) * constants_size, MTL::ResourceStorageModeShared);
+    constants = device->newBuffer(sizeof(Constants), MTL::ResourceStorageModeShared);
     if (!constants) {
         throw std::runtime_error("Failed to create constants buffer");
     }
@@ -161,6 +167,12 @@ void MetalCompute::createBuffers() {
     if(!deltas) {
         throw std::runtime_error("Failed to create deltas buffer");
     }
+
+    cellCounts = device->newBuffer(sizeof(int), MTL::ResourceStorageModeShared);
+    if(!cellCounts) {
+        throw std::runtime_error("Failed to create cellCounts buffer");
+    }
+
 }
 
 void MetalCompute::handle_box_constraints() {
@@ -209,7 +221,7 @@ void MetalCompute::update_particles() {
     commandBuffer->waitUntilCompleted();
 }
 
-void MetalCompute::handle_collisions(int grid_size) {
+void MetalCompute::handle_collisions() {
     MTL::CommandBuffer *commandBuffer = commandQueue->commandBuffer();
     MTL::ComputeCommandEncoder *encoder = commandBuffer->computeCommandEncoder();
 
@@ -219,8 +231,6 @@ void MetalCompute::handle_collisions(int grid_size) {
     encoder->setBuffer(offsets, 0, 2);
     encoder->setBuffer(constants, 0, 3);
     encoder->setBuffer(deltas, 0, 4);
-
-    int num_cells = grid_size * grid_size;
 
     MTL::Size gridSize = MTL::Size{(NS::UInteger)num_particles, 1, 1};
 
@@ -250,7 +260,7 @@ void MetalCompute::handle_collisions(int grid_size) {
 
     threadGroupSize = pipelineStateCollisions->maxTotalThreadsPerThreadgroup();
 
-    threadGroupDim = (threadGroupSize > grid_size) ? grid_size : threadGroupSize;
+    threadGroupDim = (threadGroupSize > num_particles) ? num_particles : threadGroupSize;
 
     threadGroup = MTL::Size{threadGroupDim, 1, 1};
 

@@ -1,6 +1,6 @@
 CXX = g++
 CXXFLAGS = -std=c++20 -O3 -g 
-LDFLAGS = -g -lSDL2 \
+LDFLAGS = -g -lSDL2 -lSDL2_ttf\
         -framework Metal \
         -framework Foundation \
       

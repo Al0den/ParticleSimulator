@@ -9,7 +9,7 @@
 #include "/Users/alois/Desktop/projects/CustomUtils/print.hpp"
 
 #include <chrono>
-
+#include <deque>
 
 int main() {
     Renderer renderer{};
@@ -29,9 +29,13 @@ int main() {
     int fps = 60;
     float dt = (float)fps / mult;
 
+    std::deque<float> fpsHistory;
+    const size_t maxFpsHistory = 30;
+    float rollingAverageFps = 0.0f;
+
     bool running = true;
     SDL_Event e;
-    
+
     while (running) {
         while (SDL_PollEvent(&e)) {
             if (e.type == SDL_QUIT) {
@@ -75,6 +79,20 @@ int main() {
         std::this_thread::sleep_for(std::chrono::milliseconds(std::max(0, (int)(1000/fps) - timeSpentMS)));
         liveFps = 1.0 / std::chrono::duration_cast<std::chrono::duration<float>>(std::chrono::high_resolution_clock::now() - prevTime).count();
         prevTime = std::chrono::high_resolution_clock::now();
+
+        fpsHistory.push_back(liveFps);
+        if (fpsHistory.size() > maxFpsHistory) {
+            fpsHistory.pop_front();
+        }
+
+        float sumFps = 0.0f;
+        for (const auto& fps : fpsHistory) {
+            sumFps += fps;
+        }
+        rollingAverageFps = sumFps / fpsHistory.size();
+        renderer.fps = rollingAverageFps;
+        
+        printf("FPS: %.2f, num_particles: %d\n", rollingAverageFps, (int)simulation.particles.size());
     }
 
     return 0;

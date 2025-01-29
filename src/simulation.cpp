@@ -27,19 +27,23 @@ int max(int a, int b) {
 }
 
 void Simulation::run(int num_iterations, float dt, int frameNum) {
+    Constants constants = {
+        .num_particles = (int)particles.size(),
+        .num_indices = (int)cellIndices.size(),
+        .num_offsets = (int)cellOffsets.size(),
+        .grid_size = grid_size,
+        .width = width,
+        .height = height,
+        .dt = dt,
+        .grid_width = grid_width,
+        .grid_height = grid_height
+    };
      
     for (int i=0; i<num_iterations; i++) {
-        std::vector<float> constants = {(float)particles.size(), 
-                                        (float)cellIndices.size(), 
-                                        (float)cellOffsets.size(), 
-                                        (float)grid_size, 
-                                        (float)width, 
-                                        (float)height, 
-                                        dt};
         if(USE_SHADER) {
             metalHandler.updateBuffers(particles, cellIndices, cellOffsets, constants);
             metalHandler.update_particles();
-            metalHandler.handle_collisions(grid_size);
+            metalHandler.handle_collisions();
             metalHandler.handle_box_constraints();
             metalHandler.loadFromBuffers(particles);
         } else {
@@ -235,7 +239,7 @@ void Simulation::update_grid() {
 
     cellIndices.resize(cellOffsets[num_cells()]);
 
-    std::fill(cellCounts.begin(), cellCounts.end(), 0);
+    memset(cellCounts.data(), 0, sizeof(int) * num_cells());
 
     for (int i = 0; i < (int)particles.size(); i++) {
         Particle& p = particles[i];

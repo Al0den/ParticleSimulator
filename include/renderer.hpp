@@ -1,6 +1,7 @@
 #pragma once
 
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h>
 #include <vector>
 
 #include "../include/particle.hpp"
@@ -29,12 +30,20 @@ public:
     SDL_Window *get_window() { return window; }
     SDL_Renderer *get_renderer() { return sdl_renderer; }
 
+    float fps;
+
+    TTF_Font* font;
+    SDL_Texture* fpsTexture;
+    SDL_Rect fpsRect;
+
 private:
     SDL_Window* window;
     SDL_Renderer* sdl_renderer;
     uint window_width = DEFAULT_WIDTH;
     uint window_height = DEFAULT_HEIGHT;
     SDL_Texture* circleTexture;
+
+    void updateFpsText(float fps);
 
     void createCircleTexture();
 

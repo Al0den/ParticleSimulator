@@ -2,6 +2,7 @@
 #include "../include/config.hpp"
 
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h>
 #include <SDL2/SDL_image.h>
 
 #include <SDL2/SDL_vulkan.h>
@@ -24,6 +25,17 @@ Renderer::Renderer() {
     if (!sdl_renderer) {
         throw std::runtime_error("Failed to create SDL renderer");
     }
+
+    if (TTF_Init() == -1) {
+    throw std::runtime_error("Failed to initialize SDL_ttf");
+    }
+
+    font = TTF_OpenFont("/Users/alois/Library/Fonts/Monaco Nerd Font Complete Mono.ttf", 24);
+    if (!font) {
+        throw std::runtime_error("Failed to load font");
+    }
+
+    fpsTexture = nullptr;
 }
 
 Renderer::~Renderer() {
@@ -40,16 +52,22 @@ Renderer::~Renderer() {
 }
 
 void Renderer::drawFrame(std::vector<Particle> particles) {
-    for (auto &p : particles) {
-        SDL_Rect rect = {
-            (int)(p.position.x - p.radius),
-            (int)(p.position.y - p.radius),
-            (int)(p.radius * 2),
-            (int)(p.radius * 2)
-        };
-        SDL_SetRenderDrawColor(sdl_renderer, 0, 0, 0, 255);
-        SDL_RenderFillRect(sdl_renderer, &rect);
+    SDL_SetRenderDrawColor(sdl_renderer, 0, 0, 0, 255);
+
+    // Reserve space to avoid reallocations
+    std::vector<SDL_Rect> rects;
+    rects.reserve(particles.size());
+
+    for (const auto &p : particles) {
+        rects.emplace_back(SDL_Rect{
+            static_cast<int>(p.position.x - p.radius),
+            static_cast<int>(p.position.y - p.radius),
+            static_cast<int>(p.radius * 2),
+            static_cast<int>(p.radius * 2)
+        });
     }
+
+    SDL_RenderFillRects(sdl_renderer, rects.data(), static_cast<int>(rects.size()));
 }
 
 

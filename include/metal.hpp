@@ -11,17 +11,30 @@
 #include <fstream>
 #include <iostream>
 
+struct Constants {
+    int num_particles;
+    int num_indices;
+    int num_offsets;
+    int grid_size;
+    int width;
+    int height;
+    float dt;
+    int grid_width;
+    int grid_height;
+};
+
 struct MetalCompute {
 public:
     MetalCompute() { init_metal(); }
     ~MetalCompute();
 
-    void updateBuffers(std::vector<Particle> particles, std::vector<int> indices, std::vector<int> offsets, std::vector<float> constants);
+    void updateBuffers(std::vector<Particle> particles, std::vector<int> indices, std::vector<int> offsets, Constants c); 
     void loadFromBuffers(std::vector<Particle> &particles);
 
-    void handle_collisions(int grid_size);
+    void handle_collisions();
     void handle_box_constraints();
     void update_particles();
+
 private:        
     void init_metal();
     
@@ -40,6 +53,7 @@ private:
 
     MTL::Buffer *indices;
     MTL::Buffer *offsets;
+    MTL::Buffer *cellCounts;
     MTL::Buffer *particles;
     MTL::Buffer *constants;
     MTL::Buffer *deltas;
@@ -47,6 +61,7 @@ private:
     int num_particles, particles_buf_max;
     int num_indices, indices_buf_max;
     int num_offsets, offsets_buf_max;
+    int num_cellCounts;
 
-    int constants_size = 7;
+    Constants c;
 };

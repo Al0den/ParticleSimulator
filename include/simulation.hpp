@@ -10,8 +10,6 @@ class Simulation {
 public:
     float dampening = 0.6;
 
-    int grid_size = 10;
-
     Simulation(MetalCompute& metalHandler, int width, int height);
     ~Simulation() = default;
 
